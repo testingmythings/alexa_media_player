@@ -98,6 +98,14 @@ def is_temperature_sensor(appliance: dict[str, Any]) -> bool:
         appliance, "Alexa.TemperatureSensor", "temperature"
     )
 
+def is_light_sensor(appliance: dict[str, Any]) -> bool:
+    """Is the given appliance the light sensor of an Echo."""
+    return (
+        is_local(appliance)
+        and has_capability(appliance, "Alexa.LightSensor", "enablement")
+        and has_capability(appliance, "Alexa.LightSensor", "illuminance")
+    )
+
 
 # Checks if air quality sensor
 def is_air_quality_sensor(appliance: dict[str, Any]) -> bool:
@@ -179,6 +187,12 @@ class AlexaLightEntity(AlexaEntity):
     color_temperature: bool
 
 
+class AlexaLightSensorEntity(AlexaEntity):
+    """Class for AlexaTemperatureEntity."""
+    enablement: bool
+    illuminance: str
+    device_serial: str
+
 class AlexaTemperatureEntity(AlexaEntity):
     """Class for AlexaTemperatureEntity."""
 
@@ -202,6 +216,7 @@ class AlexaEntities(TypedDict):
 
     light: list[AlexaLightEntity]
     guard: list[AlexaEntity]
+    light_sensors: list[AlexaLightSensorEntity]
     temperature: list[AlexaTemperatureEntity]
     air_quality: list[AlexaAirQualityEntity]
     binary_sensor: list[AlexaBinaryEntity]
@@ -212,6 +227,7 @@ def parse_alexa_entities(network_details: Optional[dict[str, Any]]) -> AlexaEnti
     """Turn the network details into a list of useful entities with the important details extracted."""
     lights = []
     guards = []
+    light_sensors = []
     temperature_sensors = []
     air_quality_sensors = []
     contact_sensors = []
@@ -237,6 +253,19 @@ def parse_alexa_entities(network_details: Optional[dict[str, Any]]) -> AlexaEnti
                         serial if serial else appliance["entityId"]
                     )
                     temperature_sensors.append(processed_appliance)
+                elif is_light_sensor(appliance):
+                    serial = get_device_serial(appliance)
+                    processed_appliance["device_serial"] = (
+                        serial if serial else appliance["entityId"]
+                    )
+                    processed_appliance["enablement"] = has_capability(
+                        appliance, "Alexa.LightSensor", "enablement"
+                    )
+                    processed_appliance["illuminance"] = has_capability(
+                        appliance, "Alexa.LightSensor", "illuminance"
+                    )
+
+                    light_sensors.append(processed_appliance)
                 # Code for Amazon Smart Air Quality Monitor
                 elif is_air_quality_sensor(appliance):
                     serial = get_device_serial(appliance)
@@ -300,6 +329,7 @@ def parse_alexa_entities(network_details: Optional[dict[str, Any]]) -> AlexaEnti
     return {
         "light": lights,
         "guard": guards,
+        "light_sensors": light_sensors,
         "temperature": temperature_sensors,
         "air_quality": air_quality_sensors,
         "binary_sensor": contact_sensors,
